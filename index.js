@@ -4,6 +4,7 @@ import {
     eventSource,
     event_types,
     appendMediaToMessage,
+    updateMessageBlock,
     saveChatConditional,
     generateQuietPrompt,
 } from '../../../../script.js';
@@ -27,6 +28,7 @@ const defaultSettings = {
     recentMessages: 4,            // how many recent messages form the scene context
     keywordThreshold: 1,          // minimum keyword score for a keyword match
     allowRepeats: false,          // allow the same image to be picked twice in a row
+    addCaption: true,             // append a metadata note so the AI knows what was shown
     collections: {},              // { scopeKey: [ imageMeta, ... ] }
 };
 
@@ -300,7 +302,19 @@ async function pickImage() {
 /*  Attaching images to chat                                                   */
 /* -------------------------------------------------------------------------- */
 
+/** Build a short, in-context note describing the attached image so the model
+ *  knows what was shown and can reference it on later turns. */
+function buildImageCaption(img) {
+    const parts = [];
+    if (img.name) parts.push(img.name);
+    if (img.character) parts.push(`featuring ${img.character}`);
+    const detail = img.context || img.scene;
+    if (detail) parts.push(detail);
+    return `*[Image shown: ${parts.join(', ') || 'an image'}]*`;
+}
+
 async function attachImageToMessage(messageId, img) {
+    const settings = getSettings();
     const ctx = getContext();
     const message = ctx.chat[messageId];
     if (!message) return false;
@@ -316,9 +330,25 @@ async function attachImageToMessage(messageId, img) {
     message.extra.title = img.name || img.scene || '';
     message.extra.inline_image = true;
 
+    // Optionally tell the AI (and the reader) what the image is, in-context.
+    let captionAdded = false;
+    if (settings.addCaption) {
+        const caption = buildImageCaption(img);
+        if (!String(message.mes || '').includes(caption)) {
+            message.mes = message.mes ? `${message.mes}\n\n${caption}` : caption;
+            captionAdded = true;
+        }
+    }
+
     const mesDom = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
     if (mesDom) {
-        appendMediaToMessage(message, $(mesDom));
+        // updateMessageBlock re-renders the text AND the media; otherwise just
+        // refresh the media so we don't needlessly rebuild the message body.
+        if (captionAdded && typeof updateMessageBlock === 'function') {
+            updateMessageBlock(messageId, message);
+        } else {
+            appendMediaToMessage(message, $(mesDom));
+        }
     }
     await saveChatConditional();
     return true;
@@ -555,6 +585,11 @@ const settingsHtml = `
                 <span>Allow the same image twice in a row</span>
             </label>
 
+            <label class="checkbox_label" for="ie_addCaption">
+                <input type="checkbox" id="ie_addCaption">
+                <span>Tell the AI what the image is (adds a caption note)</span>
+            </label>
+
             <hr>
 
             <div class="ie-add-form">
@@ -746,6 +781,7 @@ function bindEnabledControl() {
 function bindUi() {
     bindEnabledControl();
     bindControl('ie_allowRepeats', 'allowRepeats', { checkbox: true });
+    bindControl('ie_addCaption', 'addCaption', { checkbox: true });
     bindControl('ie_scope', 'scope');
     bindControl('ie_triggerMode', 'triggerMode');
     bindControl('ie_matchMethod', 'matchMethod');
