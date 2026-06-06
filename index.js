@@ -712,8 +712,39 @@ async function onAddClick() {
     renderGallery();
 }
 
+/** Enable toggle: reload the page when the extension is switched off so its
+ *  event listeners and UI are torn down cleanly. */
+function bindEnabledControl() {
+    const settings = getSettings();
+    const el = document.getElementById('ie_enabled');
+    if (!el) return;
+    el.checked = !!settings.enabled;
+    el.addEventListener('change', async () => {
+        settings.enabled = el.checked;
+        if (el.checked) {
+            save();
+            return;
+        }
+        toast('Extension disabled — reloading the page…', 'info');
+        // Make sure the disabled state is persisted before the reload fires.
+        let savedImmediately = false;
+        try {
+            const mod = await import('../../../../script.js');
+            if (typeof mod.saveSettings === 'function') {
+                await mod.saveSettings();
+                savedImmediately = true;
+            }
+        } catch (err) {
+            console.debug('[ImageEmbed] Immediate save unavailable; using debounced save.', err);
+        }
+        if (!savedImmediately) save();
+        // Short delay if saved directly; longer to let the debounced write flush.
+        setTimeout(() => location.reload(), savedImmediately ? 200 : 1200);
+    });
+}
+
 function bindUi() {
-    bindControl('ie_enabled', 'enabled', { checkbox: true });
+    bindEnabledControl();
     bindControl('ie_allowRepeats', 'allowRepeats', { checkbox: true });
     bindControl('ie_scope', 'scope');
     bindControl('ie_triggerMode', 'triggerMode');
