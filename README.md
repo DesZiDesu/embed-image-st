@@ -22,6 +22,11 @@ the AI, the AI chooses one of *your* pictures for the moment.
   - *Automatic*: after each AI message, with a configurable chance.
   - *Manual*: the **Pick scene image** button in the wand (extensions) menu, the
     **Pick now** button in settings, or the `/embedimage` slash command.
+- **AI awareness (caption note)** – optionally append a short note built from the
+  image's metadata (e.g. `*[Image shown: Mona Lisa, famous portrait]*`) to the
+  message, so the model knows what it just showed and can reference it on later
+  turns. Note: selection and this caption are based on the **text you write** for
+  each image — the AI does not visually recognize the picture's contents.
 - **Scoped storage** – keep image sets **global**, **per character / group**, or
   **per chat**.
 - **Import / export** the current scope's collection as JSON.
@@ -74,3 +79,4 @@ for older versions).
 | Max images per request | Caps how many candidates are sent to the AI. |
 | Keyword match threshold | Minimum keyword score required for a keyword pick. |
 | Allow same image twice in a row | Permit repeating the previous pick. |
+| Tell the AI what the image is | Append a metadata caption note to the message so the AI knows what was shown. |
